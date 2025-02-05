@@ -26,65 +26,54 @@ const anthropic = new Anthropic({
 // 이미지 업로드 및 요약 API
 app.post('/api/summarize', upload.single('file'), async (req, res) => {
     try {
+        // 파일 존재 여부 확인
         if (!req.file) {
+            console.error('No file uploaded');
             return res.status(400).json({ error: '파일이 없습니다.' });
         }
 
+        // 파일 타입 확인
+        console.log('File type:', req.file.mimetype);
+        const fileType = req.file.mimetype;
+
         let fileContent;
-        const fileType = req.body.fileType;
+        let messages = [];
 
         if (fileType === 'application/pdf') {
-            // PDF 파일 처리
             try {
                 const pdfData = await pdf(req.file.buffer);
                 fileContent = pdfData.text;
-            } catch (error) {
-                console.error('PDF 처리 오류:', error);
-                return res.status(400).json({ error: 'PDF 파일 처리 중 오류가 발생했습니다.' });
-            }
-        }
+                console.log('PDF content extracted:', fileContent.substring(0, 100) + '...');
 
-        // 제목과 언론사 요청
-        const infoMessage = await anthropic.messages.create({
-            model: "claude-3-sonnet-20240229",
-            max_tokens: 1024,
-            messages: [{
-                role: "user",
-                content: [
-                    {
-                        type: "text",
-                        text: fileType === 'application/pdf' 
-                            ? `다음 PDF 텍스트를 분석해주세요:\n\n${fileContent}\n\n다음 형식으로 답변해주세요:\n제목: [정확한 뉴스 제목]\n언론사: [언론사명]`
-                            : "이 뉴스 이미지를 분석해주세요..."  // 기존 이미지 프롬프트
-                    },
-                    ...(fileType.includes('image') ? [{
-                        type: "image",
-                        source: {
-                            type: "base64",
-                            media_type: req.file.mimetype,
-                            data: req.file.buffer.toString('base64')
+                messages = [{
+                    role: "user",
+                    content: [
+                        {
+                            type: "text",
+                            text: `다음 PDF 텍스트를 분석해주세요:\n\n${fileContent}\n\n다음 형식으로 답변해주세요:\n제목: [정확한 뉴스 제목]\n언론사: [언론사명]`
                         }
-                    }] : [])
-                ]
-            }]
-        });
-
-        // 요약 요청 - 프롬프트 개선
-        const summaryMessage = await anthropic.messages.create({
-            model: "claude-3-sonnet-20240229",
-            max_tokens: 1024,
-            messages: [{
+                    ]
+                }];
+            } catch (error) {
+                console.error('PDF processing error:', error);
+                return res.status(400).json({ 
+                    error: 'PDF 파일 처리 중 오류가 발생했습니다.',
+                    details: error.message 
+                });
+            }
+        } else if (fileType.startsWith('image/')) {
+            messages = [{
                 role: "user",
                 content: [
                     {
                         type: "text",
-                        text: "이 뉴스 기사를 자세히 읽고 다음 지침에 따라 요약해주세요:\n\n" +
-                              "1. 기사의 핵심 내용을 정확하게 파악하세요.\n" +
-                              "2. 주거 관련 용어('자취', '외지' 등)를 정확히 사용하세요.\n" +
-                              "3. 지원 정책의 세부 내용을 정확히 파악하세요.\n" +
-                              "4. 숫자와 날짜는 원문 그대로 정확하게 표기하세요.\n" +
-                              "5. 오타나 맥락 오류가 없도록 주의하세요.\n\n" +
-                              "2개의 문장으로 자연스럽게 요약해주세요."
+                        text: "이 뉴스 기사를 자세히 읽고 분석해주세요. 특히 다음 사항에 주의해주세요:\n\n" +
+                              "1. 기사의 전체 맥락을 정확히 파악하세요.\n" +
+                              "2. 오타나 잘못된 단어 사용이 없도록 주의하세요.\n" +
+                              "3. 한자어나 전문용어는 정확한 한글 표기를 사용하세요.\n\n" +
+                              "분석 후 다음 형식으로만 답변해주세요:\n" +
+                              "제목: [정확한 뉴스 제목]\n" +
+                              "언론사: [언론사명]"
                     },
                     {
                         type: "image",
@@ -95,43 +84,75 @@ app.post('/api/summarize', upload.single('file'), async (req, res) => {
                         }
                     }
                 ]
-            }]
+            }];
+        } else {
+            console.error('Unsupported file type:', fileType);
+            return res.status(400).json({ error: '지원하지 않는 파일 형식입니다.' });
+        }
+
+        // API 호출 전 로그
+        console.log('Calling Anthropic API...');
+
+        // Anthropic API 호출
+        const infoMessage = await anthropic.messages.create({
+            model: "claude-3-sonnet-20240229",
+            max_tokens: 1024,
+            messages: messages
         });
 
-        // 응답 파싱 및 검증
+        // API 응답 로그
+        console.log('Anthropic API response:', infoMessage.content[0].text);
+
+        // 응답 파싱
         const infoText = infoMessage.content[0].text;
         const headlineMatch = infoText.match(/제목:\s*(.*?)(?=\n|$)/);
         const pressMatch = infoText.match(/언론사:\s*(.*?)(?=\n|$)/);
 
-        const headline = headlineMatch ? headlineMatch[1].trim() : null;
-        const press = pressMatch ? pressMatch[1].trim() : null;
+        if (!headlineMatch || !pressMatch) {
+            console.error('Failed to parse response:', infoText);
+            throw new Error('응답 파싱 실패');
+        }
+
+        const headline = headlineMatch[1].trim();
+        const press = pressMatch[1].trim();
+
+        // 요약 생성
+        const summaryMessage = await anthropic.messages.create({
+            model: "claude-3-sonnet-20240229",
+            max_tokens: 1024,
+            messages: [{
+                role: "user",
+                content: fileType === 'application/pdf' 
+                    ? [{ type: "text", text: `다음 PDF 내용을 2문장으로 요약해주세요:\n\n${fileContent}` }]
+                    : [
+                        { type: "text", text: "이 뉴스 기사를 2문장으로 요약해주세요." },
+                        {
+                            type: "image",
+                            source: {
+                                type: "base64",
+                                media_type: req.file.mimetype,
+                                data: req.file.buffer.toString('base64')
+                            }
+                        }
+                    ]
+            }]
+        });
+
         const summary = summaryMessage.content[0].text.trim();
 
-        // 데이터 검증
-        if (!headline || headline.length < 5) {
-            throw new Error('유효하지 않은 제목입니다.');
-        }
-
-        if (!press || press.length < 2) {
-            throw new Error('유효하지 않은 언론사명입니다.');
-        }
-
-        if (!summary || summary.length < 10) {
-            throw new Error('유효하지 않은 요약입니다.');
-        }
-
-        // 응답 전송
+        // 최종 응답
         res.json({
-            headline: headline,
-            press: press,
-            summary: summary
+            headline,
+            press,
+            summary
         });
 
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Server error:', error);
         res.status(500).json({ 
             error: '처리 중 오류가 발생했습니다.',
-            details: error.message 
+            details: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 });
