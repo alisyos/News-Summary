@@ -123,9 +123,15 @@ app.post('/api/summarize', upload.single('file'), async (req, res) => {
             messages: [{
                 role: "user",
                 content: fileType === 'application/pdf' 
-                    ? [{ type: "text", text: `다음 PDF 내용을 2문장으로 요약해주세요:\n\n${fileContent}` }]
+                    ? [{ 
+                        type: "text", 
+                        text: `다음 PDF 내용을 요약해주세요. 번호나 구분 없이 자연스럽게 연결되는 2개의 문장으로 작성해주세요:\n\n${fileContent}` 
+                      }]
                     : [
-                        { type: "text", text: "이 뉴스 기사를 2문장으로 요약해주세요." },
+                        { 
+                            type: "text", 
+                            text: "이 뉴스 기사를 요약해주세요. 번호나 구분 없이 자연스럽게 연결되는 2개의 문장으로 작성해주세요. 문장 사이에는 적절한 접속사나 연결어를 사용하여 자연스럽게 이어지도록 해주세요." 
+                        },
                         {
                             type: "image",
                             source: {
@@ -138,7 +144,10 @@ app.post('/api/summarize', upload.single('file'), async (req, res) => {
             }]
         });
 
-        const summary = summaryMessage.content[0].text.trim();
+        const summary = summaryMessage.content[0].text
+            .replace(/^\d+[\.\)]\s*/gm, '')  // 번호 제거
+            .replace(/\n/g, ' ')  // 줄바꿈 제거
+            .trim();
 
         // 최종 응답
         res.json({
