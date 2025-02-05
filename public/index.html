@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="뉴스 이미지를 업로드하면 AI가 자동으로 요약해주는 서비스입니다.">
+    <title>AI 뉴스 요약 서비스</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="/favicon.png">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">
+                <img src="/logo.png" alt="AI NEWS SUMMARY" class="logo-image">
+                <p class="logo-subtitle">뉴스 이미지를 업로드하면 AI가 요약해드립니다</p>
+            </div>
+        </header>
+
+        <main>
+            <section class="upload-section">
+                <div class="upload-container">
+                    <div class="upload-area" id="dropZone">
+                        <div class="upload-icon">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M4 16L8 12L12 16L20 8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                <path d="M4 20V4H20V20H4Z" stroke="currentColor" stroke-width="2"/>
+                                <circle cx="9" cy="8" r="2" fill="currentColor"/>
+                            </svg>
+                        </div>
+                        <h2 class="upload-title">이미지 업로드</h2>
+                        <p class="upload-description">뉴스 이미지를 드래그하거나 클릭하여 업로드하세요</p>
+                        <p class="upload-hint">지원 형식: JPG, PNG, GIF (최대 5MB)</p>
+                    </div>
+                    <input type="file" id="fileInput" accept="image/*" multiple hidden>
+                </div>
+            </section>
+
+            <section class="results-section" id="summaryContainer">
+                <h2 class="results-title">요약 결과</h2>
+                <div id="summaryResults"></div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <p>&copy; 2024 AI News Summary. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <div id="toast" class="toast" role="alert" aria-live="polite"></div>
+    <script src="app.js"></script>
+</body>
+</html> 
