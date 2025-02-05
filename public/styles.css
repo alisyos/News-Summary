@@ -305,4 +305,24 @@ body {
     .summary-item {
         transform: none;
     }
+}
+
+/* 파일 타입 표시기 스타일 */
+.file-type-indicator {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.file-type-indicator.pdf {
+    background-color: #FF5733;
+    color: white;
+}
+
+.file-type-indicator.image {
+    background-color: #4B57FF;
+    color: white;
 } 

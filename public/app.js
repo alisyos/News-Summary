@@ -17,15 +17,20 @@ document.addEventListener('DOMContentLoaded', function() {
     // 파일 크기 검증
     function validateFile(file) {
         const maxSize = 5 * 1024 * 1024; // 5MB
-        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+        const allowedTypes = [
+            'image/jpeg', 
+            'image/png', 
+            'image/gif',
+            'application/pdf'
+        ];
 
         if (!allowedTypes.includes(file.type)) {
-            showToast(`${file.name}: 지원하지 않는 파일 형식입니다. JPG, PNG, GIF 파일만 업로드 가능합니다.`, 'error');
+            showToast('지원하지 않는 파일 형식입니다. JPG, PNG, GIF, PDF 파일만 업로드 가능합니다.', 'error');
             return false;
         }
 
         if (file.size > maxSize) {
-            showToast(`${file.name}: 파일 크기가 너무 큽니다. 5MB 이하의 파일만 업로드 가능합니다.`, 'error');
+            showToast('파일 크기가 너무 큽니다. 5MB 이하의 파일만 업로드 가능합니다.', 'error');
             return false;
         }
 
@@ -103,7 +108,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         try {
             const formData = new FormData();
-            formData.append('image', file);
+            formData.append('file', file);
+            formData.append('fileType', file.type); // 파일 타입 정보 추가
 
             const response = await fetch('/api/summarize', {
                 method: 'POST',
@@ -123,6 +129,9 @@ document.addEventListener('DOMContentLoaded', function() {
             
             summaryDiv.innerHTML = `
                 <div class="news-header">
+                    <div class="file-type-indicator ${file.type.includes('pdf') ? 'pdf' : 'image'}">
+                        ${file.type.includes('pdf') ? 'PDF' : 'IMAGE'}
+                    </div>
                     <h3 class="news-headline">${data.headline}</h3>
                     <p class="news-press">${data.press}</p>
                     <p class="file-name">${file.name}</p>
@@ -135,7 +144,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             summaryResults.insertBefore(summaryDiv, summaryResults.firstChild);
         } catch (error) {
-            console.error('Error processing file:', file.name, error);
+            console.error('Error:', error);
             loadingDiv.remove();
             showToast(`${file.name} 처리 중 오류가 발생했습니다.`, 'error');
         } finally {

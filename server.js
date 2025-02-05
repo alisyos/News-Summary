@@ -4,6 +4,7 @@ const multer = require('multer');
 const Anthropic = require('@anthropic-ai/sdk');
 const path = require('path');
 const fs = require('fs');
+const pdf = require('pdf-parse');
 
 const app = express();
 
@@ -23,13 +24,27 @@ const anthropic = new Anthropic({
 });
 
 // 이미지 업로드 및 요약 API
-app.post('/api/summarize', upload.single('image'), async (req, res) => {
+app.post('/api/summarize', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) {
-            return res.status(400).json({ error: '이미지 파일이 없습니다.' });
+            return res.status(400).json({ error: '파일이 없습니다.' });
         }
 
-        // 제목과 언론사 요청 - 프롬프트 개선
+        let fileContent;
+        const fileType = req.body.fileType;
+
+        if (fileType === 'application/pdf') {
+            // PDF 파일 처리
+            try {
+                const pdfData = await pdf(req.file.buffer);
+                fileContent = pdfData.text;
+            } catch (error) {
+                console.error('PDF 처리 오류:', error);
+                return res.status(400).json({ error: 'PDF 파일 처리 중 오류가 발생했습니다.' });
+            }
+        }
+
+        // 제목과 언론사 요청
         const infoMessage = await anthropic.messages.create({
             model: "claude-3-sonnet-20240229",
             max_tokens: 1024,
@@ -38,23 +53,18 @@ app.post('/api/summarize', upload.single('image'), async (req, res) => {
                 content: [
                     {
                         type: "text",
-                        text: "이 뉴스 기사를 자세히 읽고 분석해주세요. 특히 다음 사항에 주의해주세요:\n\n" +
-                              "1. 기사의 전체 맥락을 정확히 파악하세요.\n" +
-                              "2. 오타나 잘못된 단어 사용이 없도록 주의하세요.\n" +
-                              "3. 한자어나 전문용어는 정확한 한글 표기를 사용하세요.\n" +
-                              "4. '자취', '외지' 등 주거 관련 용어를 정확히 구분하세요.\n\n" +
-                              "분석 후 다음 형식으로만 답변해주세요:\n" +
-                              "제목: [정확한 뉴스 제목]\n" +
-                              "언론사: [언론사명]"
+                        text: fileType === 'application/pdf' 
+                            ? `다음 PDF 텍스트를 분석해주세요:\n\n${fileContent}\n\n다음 형식으로 답변해주세요:\n제목: [정확한 뉴스 제목]\n언론사: [언론사명]`
+                            : "이 뉴스 이미지를 분석해주세요..."  // 기존 이미지 프롬프트
                     },
-                    {
+                    ...(fileType.includes('image') ? [{
                         type: "image",
                         source: {
                             type: "base64",
                             media_type: req.file.mimetype,
                             data: req.file.buffer.toString('base64')
                         }
-                    }
+                    }] : [])
                 ]
             }]
         });
