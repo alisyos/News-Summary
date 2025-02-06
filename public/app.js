@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 파일 크기 검증
     function validateFile(file) {
-        const maxSize = 5 * 1024 * 1024; // 5MB
+        const maxSize = 30 * 1024 * 1024; // 30MB
         const allowedTypes = [
             'image/jpeg', 
             'image/png', 
@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (file.size > maxSize) {
-            showToast('파일 크기가 너무 큽니다. 5MB 이하의 파일만 업로드 가능합니다.', 'error');
+            showToast('파일 크기가 너무 큽니다. 30MB 이하의 파일만 업로드 가능합니다.', 'error');
             return false;
         }
 
